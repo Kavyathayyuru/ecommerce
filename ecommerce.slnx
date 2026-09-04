@@ -6,4 +6,5 @@
   <Project Path="ECommerce.Business/ECommerce.Business.csproj" Id="73dbd71c-b250-495c-ab33-dea606795ff2" />
   <Project Path="ECommerce.Data/ECommerce.Data.csproj" />
   <Project Path="ecommerce/ECommerce.API.csproj" />
+  <Project Path="xUnit/xUnit.csproj" Id="821b4522-66ff-4036-9337-321b0ca64310" />
 </Solution>
