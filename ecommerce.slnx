@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="ClassLibrary1/ECommerce.Models.csproj" />
+  <Project Path="ECommerce.Business/ECommerce.Business.csproj" Id="73dbd71c-b250-495c-ab33-dea606795ff2" />
+  <Project Path="ECommerce.Data/ECommerce.Data.csproj" />
+  <Project Path="ecommerce/ECommerce.API.csproj" />
+</Solution>
