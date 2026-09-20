@@ -2,6 +2,7 @@
 using ECommerce.Models.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 
 namespace ECommerce.API.Controllers
@@ -12,10 +13,14 @@ namespace ECommerce.API.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly IConfiguration _configuration;
 
-        public OrderController(IOrderService orderService)
+        public OrderController(
+            IOrderService orderService,
+            IConfiguration configuration)
         {
             _orderService = orderService;
+            _configuration = configuration;
         }
 
         [HttpPost]
@@ -54,6 +59,45 @@ namespace ECommerce.API.Controllers
                 .GetOrdersByUserId(userId);
 
             return Ok(orders);
+        }
+
+        [HttpGet("admin/all")]
+        public async Task<IActionResult> GetAllOrdersForAdmin()
+        {
+            var email = User.FindFirstValue(ClaimTypes.Email);
+            var adminEmails = _configuration
+                .GetSection("Admin:Emails")
+                .GetChildren()
+                .Select(section => section.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value));
+
+            if (email == null || !adminEmails.Contains(email, StringComparer.OrdinalIgnoreCase))
+                return Forbid();
+
+            var orders = await _orderService.GetAllOrders();
+
+            var result = orders.Select(order => new
+            {
+                order.Id,
+                order.OrderDate,
+                order.Status,
+                order.TotalAmount,
+                Customer = order.User == null ? null : new
+                {
+                    order.User.Id,
+                    order.User.Username,
+                    order.User.Email
+                },
+                Items = order.OrderItems.Select(item => new
+                {
+                    item.ProductId,
+                    ProductName = item.Product?.Name,
+                    item.Quantity,
+                    item.UnitPrice
+                })
+            });
+
+            return Ok(result);
         }
         [HttpGet("{orderId}")]
         public async Task<IActionResult> GetOrderById(int orderId)

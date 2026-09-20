@@ -30,6 +30,16 @@ namespace ECommerce.Data.Repositories
                 .ToListAsync();
         }
 
+            public async Task<List<Order>> GetAllOrders()
+            {
+                return await _context.Orders
+                .Include(o => o.User)
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .OrderByDescending(o => o.OrderDate)
+                .ToListAsync();
+            }
+
         public async Task<Order?> GetOrderById(int orderId)
         {
             return await _context.Orders

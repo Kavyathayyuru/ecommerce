@@ -14,5 +14,8 @@ namespace ECommerce.Business.Services
         Task<Product?> UpdateProduct(int id, UpdateProductDto productDto);
 
         Task<bool> DeleteProduct(int id);
+        Task<BulkProductImportResultDto> BulkAddProducts(Stream excelStream);
+
+        Task<bool> DeleteProducts(List<int> productIds);
     }
 }

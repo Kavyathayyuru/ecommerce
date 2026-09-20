@@ -9,6 +9,8 @@ namespace ECommerce.Business.Services
 
         Task<List<Order>> GetOrdersByUserId(int userId);
 
+        Task<List<Order>> GetAllOrders();
+
         Task<Order?> GetOrderById(int orderId);
         Task<bool> CheckoutOrder(int orderId, int userId);
     }

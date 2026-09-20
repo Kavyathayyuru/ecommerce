@@ -5,6 +5,7 @@
   <Project Path="ClassLibrary1/ECommerce.Models.csproj" />
   <Project Path="ECommerce.Business/ECommerce.Business.csproj" Id="73dbd71c-b250-495c-ab33-dea606795ff2" />
   <Project Path="ECommerce.Data/ECommerce.Data.csproj" />
+  <Project Path="ECommerce.IntegrationTests/ECommerce.IntegrationTests.csproj" Id="3e38143f-c5a6-49ea-9534-be6fde8e6e26" />
   <Project Path="ecommerce/ECommerce.API.csproj" />
   <Project Path="xUnit/xUnit.csproj" Id="821b4522-66ff-4036-9337-321b0ca64310" />
 </Solution>

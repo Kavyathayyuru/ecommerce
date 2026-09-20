@@ -54,5 +54,23 @@ namespace ECommerce.Data.Repositories
                 await _context.SaveChangesAsync();
             }
         }
+        public async Task DeleteProducts(List<int> productIds)
+        {
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.Id))
+                .ToListAsync();
+
+            if (products.Count == 0)
+                return;
+
+            _context.Products.RemoveRange(products);
+
+            await _context.SaveChangesAsync();
+        }
+        public async Task AddProducts(List<Product> products)
+        {
+            await _context.Products.AddRangeAsync(products);
+            await _context.SaveChangesAsync();
+        }
     }
 }

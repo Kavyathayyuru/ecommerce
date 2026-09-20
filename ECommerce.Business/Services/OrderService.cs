@@ -78,6 +78,11 @@ namespace ECommerce.Business.Services
                 .GetOrdersByUserId(userId);
         }
 
+            public async Task<List<Order>> GetAllOrders()
+            {
+                return await _orderRepository.GetAllOrders();
+            }
+
         public async Task<Order?> GetOrderById(int orderId)
         {
             return await _orderRepository

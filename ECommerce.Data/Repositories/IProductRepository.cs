@@ -13,5 +13,8 @@ namespace ECommerce.Data.Repositories
         Task UpdateProduct(Product product);
 
         Task DeleteProduct(int id);
+        Task AddProducts(List<Product> products);
+
+        Task DeleteProducts(List<int> productIds);
     }
 }

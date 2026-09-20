@@ -23,7 +23,16 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 // Add services to the container.
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactApp", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -82,6 +91,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseCors("ReactApp");
 
 app.UseHttpsRedirection();
 
@@ -93,5 +103,7 @@ app.MapControllers();
 Console.WriteLine(">>> BEFORE APP.RUN <<<");
 
 app.Run();
+public partial class Program
+{
+}
 
-Console.WriteLine(">>> AFTER APP.RUN <<<");
