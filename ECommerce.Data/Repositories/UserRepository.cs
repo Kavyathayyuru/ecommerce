@@ -19,6 +19,13 @@ namespace ECommerce.Data.Repositories
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
+        public async Task<List<User>> GetAllUsers()
+        {
+            return await _context.Users
+                .OrderBy(u => u.Username)
+                .ToListAsync();
+        }
+
         public async Task AddUser(User user)
         {
             await _context.Users.AddAsync(user);

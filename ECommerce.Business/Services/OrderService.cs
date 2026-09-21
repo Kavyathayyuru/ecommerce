@@ -107,5 +107,23 @@ namespace ECommerce.Business.Services
 
             return true;
         }
+
+        public async Task<Order?> UpdateOrderStatus(int orderId, string status)
+        {
+            var allowedStatuses = new[] { "Pending", "Processing", "Shipped", "Delivered", "Cancelled", "Refunded" };
+            var normalizedStatus = allowedStatuses.FirstOrDefault(
+                allowedStatus => string.Equals(allowedStatus, status, StringComparison.OrdinalIgnoreCase));
+
+            if (normalizedStatus == null)
+                return null;
+
+            var order = await _orderRepository.GetOrderById(orderId);
+            if (order == null)
+                return null;
+
+            order.Status = normalizedStatus;
+            await _orderRepository.UpdateOrder(order);
+            return order;
+        }
     }
 }

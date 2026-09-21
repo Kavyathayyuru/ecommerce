@@ -6,6 +6,8 @@ namespace ECommerce.Data.Repositories
     {
         Task<User?> GetUserByEmail(string email);
 
+        Task<List<User>> GetAllUsers();
+
         Task AddUser(User user);
     }
 }

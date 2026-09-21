@@ -34,7 +34,7 @@ namespace ECommerce.API.Controllers
             if (token == null)
                 return Unauthorized("Invalid email or password.");
 
-            return Ok(new { token });
+            return Ok(token);
         }
     }
 }

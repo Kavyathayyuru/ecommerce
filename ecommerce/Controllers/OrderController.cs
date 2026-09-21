@@ -99,6 +99,21 @@ namespace ECommerce.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpPatch("admin/{orderId}/status")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateOrderStatus(
+            int orderId,
+            UpdateOrderStatusDto updateOrderStatusDto)
+        {
+            var order = await _orderService.UpdateOrderStatus(
+                orderId,
+                updateOrderStatusDto.Status);
+
+            return order == null
+                ? BadRequest("Order not found or status is invalid.")
+                : Ok(order);
+        }
         [HttpGet("{orderId}")]
         public async Task<IActionResult> GetOrderById(int orderId)
         {

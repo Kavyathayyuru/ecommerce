@@ -28,8 +28,9 @@ namespace ECommerce.Business.Services
 
         public async Task<bool> RegisterUser(RegisterUserDto registerUserDto)
         {
+            var normalizedEmail = registerUserDto.Email.Trim().ToLowerInvariant();
             var existingUser =
-                await _userRepository.GetUserByEmail(registerUserDto.Email);
+                await _userRepository.GetUserByEmail(normalizedEmail);
 
             if (existingUser != null)
             {
@@ -39,7 +40,7 @@ namespace ECommerce.Business.Services
             var user = new User
             {
                 Username = registerUserDto.Username,
-                Email = registerUserDto.Email
+                Email = normalizedEmail
             };
 
             user.PasswordHash =
@@ -50,10 +51,11 @@ namespace ECommerce.Business.Services
             return true;
         }
 
-        public async Task<string?> Login(LoginDto loginDto)
+        public async Task<AuthResponseDto?> Login(LoginDto loginDto)
         {
+            var normalizedEmail = loginDto.Email.Trim().ToLowerInvariant();
             var user =
-                await _userRepository.GetUserByEmail(loginDto.Email);
+                await _userRepository.GetUserByEmail(normalizedEmail);
 
             if (user == null)
             {
@@ -71,11 +73,20 @@ namespace ECommerce.Business.Services
                 return null;
             }
 
+            var adminEmails = _configuration
+                .GetSection("Admin:Emails")
+                .GetChildren()
+                .Select(section => section.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var role = adminEmails.Contains(user.Email) ? "Admin" : "Customer";
+
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Email, user.Email)
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, role)
             };
 
             var jwtKey = _configuration["Jwt:Key"]
@@ -108,7 +119,12 @@ namespace ECommerce.Business.Services
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            return new AuthResponseDto
+            {
+                Token = new JwtSecurityTokenHandler().WriteToken(token),
+                Role = role,
+                IsAdmin = role == "Admin"
+            };
         }
     }
 }

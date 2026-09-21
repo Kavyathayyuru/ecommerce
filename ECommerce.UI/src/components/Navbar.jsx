@@ -7,6 +7,9 @@ function Navbar() {
     const [searchParams] = useSearchParams();
     const [search, setSearch] = useState(() => searchParams.get("search") || "");
     const [user, setUser] = useState(() => localStorage.getItem("user"));
+    const session = user ? JSON.parse(user) : null;
+    const isAdmin = [session?.role, session?.Role, session?.userRole, session?.user?.role]
+        .some((role) => String(role || "").toLowerCase() === "admin");
 
     useEffect(() => {
         const refreshUser = () => setUser(localStorage.getItem("user"));
@@ -52,6 +55,8 @@ function Navbar() {
                     <Link to="/orders">📦 Orders</Link>
 
                     <Link to="/cart">🛒 Cart ({cartCount})</Link>
+
+                    {isAdmin && <Link to="/admin">Admin</Link>}
 
                     {user ? (
                         <button type="button" onClick={() => { localStorage.removeItem("user"); setUser(null); navigate("/"); }}>

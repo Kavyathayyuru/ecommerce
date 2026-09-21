@@ -13,5 +13,6 @@ namespace ECommerce.Business.Services
 
         Task<Order?> GetOrderById(int orderId);
         Task<bool> CheckoutOrder(int orderId, int userId);
+        Task<Order?> UpdateOrderStatus(int orderId, string status);
     }
 }

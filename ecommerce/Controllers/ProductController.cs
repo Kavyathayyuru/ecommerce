@@ -43,6 +43,7 @@ namespace ECommerce.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> AddProduct(
             CreateProductDto productDto)
         {
@@ -52,6 +53,7 @@ namespace ECommerce.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> UpdateProduct(
             int id,
             [FromBody] UpdateProductDto productDto)
@@ -67,6 +69,7 @@ namespace ECommerce.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
             var deleted = await _productService.DeleteProduct(id);
@@ -79,6 +82,7 @@ namespace ECommerce.API.Controllers
             return NoContent();
         }
         [HttpDelete("bulk-delete")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProducts(BulkDeleteProductsDto dto)
         {
             if (dto.ProductIds == null || dto.ProductIds.Count == 0)
@@ -96,6 +100,7 @@ namespace ECommerce.API.Controllers
             });
         }
         [HttpPost("bulk-upload")]
+        [Authorize(Roles = "Admin")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> BulkUpload(IFormFile file)
         {

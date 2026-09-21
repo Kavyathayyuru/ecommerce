@@ -18,6 +18,7 @@ namespace ECommerce.API.Controllers
         }
 
         [HttpPut("{productId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateStock(
             int productId,
             UpdateStockDto updateStockDto)
@@ -32,6 +33,7 @@ namespace ECommerce.API.Controllers
             return Ok("Stock updated successfully.");
         }
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllInventory()
         {
             var inventory = await _inventoryService.GetAllInventory();
@@ -39,6 +41,7 @@ namespace ECommerce.API.Controllers
             return Ok(inventory);
         }
         [HttpGet("low-stock")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetLowStockProducts(int threshold = 10)
         {
             var products = await _inventoryService.GetLowStockProducts(threshold);
@@ -46,6 +49,7 @@ namespace ECommerce.API.Controllers
             return Ok(products);
         }
         [HttpPost("{productId}/increase")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> IncreaseStock(int productId,int quantity)
         {
             var result = await _inventoryService
@@ -60,6 +64,7 @@ namespace ECommerce.API.Controllers
             return Ok("Stock increased successfully.");
         }
         [HttpPost("{productId}/decrease")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DecreaseStock(
     int productId,
     int quantity)

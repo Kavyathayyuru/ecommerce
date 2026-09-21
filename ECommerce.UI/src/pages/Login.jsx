@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api } from "../api";
 
 function Login() {
     const navigate = useNavigate();
@@ -13,7 +13,10 @@ function Login() {
         setLoading(true);
         setError("");
         try {
-            const response = await axios.post("https://localhost:7070/api/auth/login", form);
+            const response = await api.post("/auth/login", {
+                email: form.email.trim().toLowerCase(),
+                password: form.password,
+            });
             localStorage.setItem("user", JSON.stringify(response.data));
             window.dispatchEvent(new Event("auth-change"));
             navigate("/");
@@ -36,6 +39,7 @@ function Login() {
                 <button type="submit" disabled={loading}>{loading ? "Signing in..." : "Login"}</button>
             </form>
             <p>New customer? <Link to="/register">Create an account</Link></p>
+            <Link className="admin-login-link" to="/admin/login">Admin login</Link>
         </main>
     );
 }

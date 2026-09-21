@@ -6,6 +6,6 @@ namespace ECommerce.Business.Services
     {
         Task<bool> RegisterUser(RegisterUserDto registerUserDto);
 
-        Task<string?> Login(LoginDto loginDto);
+        Task<AuthResponseDto?> Login(LoginDto loginDto);
     }
 }

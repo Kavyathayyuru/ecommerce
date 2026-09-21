@@ -4,7 +4,7 @@ import Navbar from "./components/Navbar";
 
 import Home from "./pages/Home";
 import Products from "./pages/Products";
-import CartPage from "./pages/Cartpage";
+import CartPage from "./pages/CartPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Orders from "./pages/Orders";
@@ -15,6 +15,8 @@ import ProductDetails from "./pages/ProductDetails";
 import { CartProvider } from "./CartContext";
 import CartNotification from "./components/CartNotification";
 import BackButton from "./components/BackButton";
+import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
 
 function App() {
     return (
@@ -35,6 +37,8 @@ function App() {
 
                 <Route path="/login" element={<Login />} />
 
+                <Route path="/admin/login" element={<AdminLogin />} />
+
                 <Route path="/register" element={<Register />} />
 
                 <Route path="/orders" element={<Orders />} />
@@ -46,6 +50,8 @@ function App() {
                 <Route path="/products/:category" element={<CategoryPage />} />
 
                 <Route path="/product/:id" element={<ProductDetails />}/>
+
+                <Route path="/admin" element={<Admin />} />
 
                 
 
