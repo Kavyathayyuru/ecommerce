@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
 using OrderService.Data;
 using OrderService.Models;
 
@@ -27,13 +30,25 @@ namespace OrderService.Controllers
 
         // GET: api/Orders
         [HttpGet]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
         {
-            return await _context.Orders.ToListAsync();
+            if (User.IsInRole("Admin"))
+            {
+                return await _context.Orders.ToListAsync();
+            }
+
+            if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            return await _context.Orders.Where(order => order.UserId == userId).ToListAsync();
         }
 
         // GET: api/Orders/1
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<Order>> GetOrder(int id)
         {
             var order = await _context.Orders.FindAsync(id);
@@ -43,14 +58,21 @@ namespace OrderService.Controllers
                 return NotFound();
             }
 
+            if (!User.IsInRole("Admin") && User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value != order.UserId.ToString())
+            {
+                return Forbid();
+            }
+
             return Ok(order);
         }
 
         // POST: api/Orders
         [HttpPost]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
         {
-            if (request.UserId <= 0 || request.ProductId <= 0 || request.Quantity <= 0)
+            if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var authenticatedUserId) ||
+                request.UserId != authenticatedUserId || request.ProductId <= 0 || request.Quantity <= 0)
             {
                 return BadRequest("A valid user, product, and positive quantity are required.");
             }
@@ -88,9 +110,11 @@ namespace OrderService.Controllers
         }
 
         [HttpPost("checkout")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> Checkout(CheckoutRequest request)
         {
-            if (request.UserId <= 0 || request.ProductId <= 0 || request.Quantity <= 0 ||
+            if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var authenticatedUserId) ||
+                request.UserId != authenticatedUserId || request.ProductId <= 0 || request.Quantity <= 0 ||
                 string.IsNullOrWhiteSpace(request.PaymentMethod))
             {
                 return BadRequest("A valid user, product, positive quantity, and payment method are required.");
@@ -145,6 +169,7 @@ namespace OrderService.Controllers
 
         // PUT: api/Orders/1
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateOrder(int id, UpdateOrderRequest request)
         {
             var order = await _context.Orders.FindAsync(id);
@@ -187,6 +212,7 @@ namespace OrderService.Controllers
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateOrderStatus(int id, UpdateOrderStatusRequest request)
         {
             var order = await _context.Orders.FindAsync(id);
@@ -200,19 +226,13 @@ namespace OrderService.Controllers
             {
                 return BadRequest("Status must be Pending, Processing, Completed, or Cancelled.");
             }
-            if (order.Status == "Cancelled" || order.Status == "Completed")
-            {
-                return Conflict("Completed or cancelled orders cannot change status.");
-            }
-
-            order.Status = request.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase)
-                ? "Cancelled"
-                : request.Status;
+            order.Status = allowedStatuses.First(status => status.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
             await _context.SaveChangesAsync();
             return Ok(order);
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteOrder(int id)
         {
             var order = await _context.Orders.FindAsync(id);
@@ -272,7 +292,14 @@ namespace OrderService.Controllers
 
             try
             {
-                var response = await _httpClientFactory.CreateClient().GetAsync(
+                var client = _httpClientFactory.CreateClient();
+                var authorization = Request.Headers.Authorization.ToString();
+                if (!string.IsNullOrWhiteSpace(authorization))
+                {
+                    client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(authorization);
+                }
+
+                var response = await client.GetAsync(
                     $"{userServiceUrl.TrimEnd('/')}/api/Users/{userId}");
                 if (response.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -304,7 +331,14 @@ namespace OrderService.Controllers
 
             try
             {
-                var response = await _httpClientFactory.CreateClient().PostAsJsonAsync(
+                var client = _httpClientFactory.CreateClient();
+                var authorization = Request.Headers.Authorization.ToString();
+                if (!string.IsNullOrWhiteSpace(authorization))
+                {
+                    client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(authorization);
+                }
+
+                var response = await client.PostAsJsonAsync(
                     $"{paymentServiceUrl.TrimEnd('/')}/api/Payments",
                     new CreatePaymentRequest(orderId, amount, paymentMethod));
                 if (!response.IsSuccessStatusCode)

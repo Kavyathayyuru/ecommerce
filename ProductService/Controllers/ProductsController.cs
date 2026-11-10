@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ProductService.Models;
 using ProductService.Data;
 
@@ -43,6 +44,7 @@ namespace ProductService.Controllers
 
         // POST: api/Products
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public IActionResult CreateProduct(Product product)
         {
             if (string.IsNullOrWhiteSpace(product.Name) || product.Price < 0 || product.Stock < 0)
@@ -64,6 +66,7 @@ namespace ProductService.Controllers
 
         // PUT: api/Products/1
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult UpdateProduct(int id, Product updatedProduct)
         {
             var product = _context.Products.FirstOrDefault(p => p.Id == id);
@@ -91,6 +94,7 @@ namespace ProductService.Controllers
 
         // DELETE: api/Products/1
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteProduct(int id)
         {
             var product = _context.Products.FirstOrDefault(p => p.Id == id);

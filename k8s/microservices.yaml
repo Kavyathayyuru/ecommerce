@@ -12,7 +12,12 @@ data:
   Services__ProductServiceUrl: http://product-service
   Services__UserServiceUrl: http://user-service
   Services__PaymentServiceUrl: http://payment-service
-  Frontend__AllowedOrigin: http://localhost:5173
+  Frontend__AllowedOrigins__0: http://localhost:5173
+  Frontend__AllowedOrigins__1: http://127.0.0.1:5173
+  Monitoring__ProductServiceUrl: http://product-service
+  Monitoring__OrderServiceUrl: http://order-service
+  Monitoring__UserServiceUrl: http://user-service
+  Monitoring__PaymentServiceUrl: http://payment-service
   ReverseProxy__Clusters__product-cluster__Destinations__product__Address: http://product-service/
   ReverseProxy__Clusters__order-cluster__Destinations__order__Address: http://order-service/
   ReverseProxy__Clusters__user-cluster__Destinations__user__Address: http://user-service/
@@ -45,6 +50,11 @@ spec:
               value: Development
             - name: ASPNETCORE_HTTP_PORTS
               value: "8080"
+            - name: Authentication__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: SigningKey
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
@@ -163,6 +173,11 @@ spec:
               value: Development
             - name: ASPNETCORE_HTTP_PORTS
               value: "8080"
+            - name: Authentication__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: SigningKey
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
@@ -229,6 +244,21 @@ spec:
               value: Development
             - name: ASPNETCORE_HTTP_PORTS
               value: "8080"
+            - name: Authentication__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: SigningKey
+            - name: BootstrapAdmin__Email
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: BootstrapAdminEmail
+            - name: BootstrapAdmin__Password
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: BootstrapAdminPassword
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
@@ -292,6 +322,11 @@ spec:
               value: Development
             - name: ASPNETCORE_HTTP_PORTS
               value: "8080"
+            - name: Authentication__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: SigningKey
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
@@ -355,6 +390,11 @@ spec:
               value: Development
             - name: ASPNETCORE_HTTP_PORTS
               value: "8080"
+            - name: Authentication__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-auth
+                  key: SigningKey
           envFrom:
             - configMapRef:
                 name: ecommerce-services

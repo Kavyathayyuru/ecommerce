@@ -1,16 +1,32 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { api, Checkout, Order, Product, User } from './api';
+import { api, Checkout, LoginResponse, Order, Product, User } from './api';
+import { AdminDashboard } from './AdminDashboard';
 
 type CartItem = { product: Product; quantity: number };
 
 export function App() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [user, setUser] = useState<User | null>(() => JSON.parse(localStorage.getItem('ecommerce-user') ?? 'null'));
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem('ecommerce-user');
+    const token = localStorage.getItem('ecommerce-token');
+    if (!storedUser || !token) {
+      localStorage.removeItem('ecommerce-user');
+      localStorage.removeItem('ecommerce-token');
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(storedUser) as User;
+      if (parsed.role === 'Customer' || parsed.role === 'Admin') return parsed;
+    } catch { }
+    localStorage.removeItem('ecommerce-user');
+    localStorage.removeItem('ecommerce-token');
+    return null;
+  });
   const [orders, setOrders] = useState<Order[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => JSON.parse(localStorage.getItem('ecommerce-cart') ?? '[]'));
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
   const [showCart, setShowCart] = useState(false);
 
   useEffect(() => {
@@ -18,9 +34,16 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      api.getOrders(user.id).then(setOrders).catch((reason: Error) => setError(reason.message));
+    localStorage.setItem('ecommerce-cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    if (user?.role === 'Customer') {
+      api.getOrders().then(setOrders).catch((reason: Error) => setError(reason.message));
       localStorage.setItem('ecommerce-user', JSON.stringify(user));
+    } else if (user?.role === 'Admin') {
+      localStorage.setItem('ecommerce-user', JSON.stringify(user));
+      setOrders([]);
     } else {
       localStorage.removeItem('ecommerce-user');
       setOrders([]);
@@ -37,13 +60,25 @@ export function App() {
       }
       return [...current, { product, quantity: 1 }];
     });
+    setError('');
     setNotice(`${product.name} added to your cart.`);
   }
 
   function signOut() {
     setUser(null);
     setCart([]);
+    localStorage.removeItem('ecommerce-token');
     setNotice('You have been signed out.');
+  }
+
+  function handleAuthenticated(session: LoginResponse) {
+    localStorage.setItem('ecommerce-token', session.token);
+    setUser(session.user);
+    setError('');
+  }
+
+  if (user?.role === 'Admin') {
+    return <AdminDashboard user={user} onSignOut={signOut} />;
   }
 
   return (
@@ -54,8 +89,8 @@ export function App() {
           <nav>
             <a href="#catalog">Catalog</a>
             {user && <a href="#orders">My orders</a>}
-            <button className="cart-button" onClick={() => setShowCart(true)}>Cart ({cart.length})</button>
-            {user ? <button className="link-button" onClick={signOut}>Sign out</button> : <a href="#account">Sign in</a>}
+            <button className="cart-button" onClick={() => setShowCart(true)}>Cart ({cart.reduce((count, item) => count + item.quantity, 0)})</button>
+            {user ? <button className="link-button" onClick={signOut}>Sign out</button> : <><a href="#account">Sign in</a><button className="link-button" onClick={() => { setAuthMode('admin'); document.getElementById('account')?.scrollIntoView(); }}>Admin</button></>}
           </nav>
         </div>
       </header>
@@ -84,7 +119,7 @@ export function App() {
           </div>
         </section>
 
-        {!user && <AuthPanel mode={authMode} setMode={setAuthMode} onAuthenticated={setUser} />}
+        {!user && <AuthPanel mode={authMode} setMode={setAuthMode} onAuthenticated={handleAuthenticated} />}
         {user && <OrdersPanel orders={orders} />}
       </main>
 
@@ -101,10 +136,18 @@ export function App() {
   );
 }
 
-function AuthPanel({ mode, setMode, onAuthenticated }: { mode: 'login' | 'register'; setMode: (mode: 'login' | 'register') => void; onAuthenticated: (user: User) => void }) {
+function AuthPanel({ mode, setMode, onAuthenticated }: { mode: 'login' | 'register' | 'admin'; setMode: (mode: 'login' | 'register' | 'admin') => void; onAuthenticated: (session: LoginResponse) => void }) {
   const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState('');
-  async function submit(event: FormEvent) { event.preventDefault(); setError(''); try { const result = mode === 'login' ? await api.login(email, password) : await api.register(name, email, password); onAuthenticated(result); } catch (reason) { setError((reason as Error).message); } }
-  return <section id="account" className="account section"><div><p className="eyebrow">Your account</p><h2>{mode === 'login' ? 'Welcome back.' : 'Join the collection.'}</h2><p>Sign in to checkout and view your order history.</p></div><form onSubmit={submit} className="auth-form">{mode === 'register' && <input required placeholder="Name" value={name} onChange={(event) => setName(event.target.value)} />}<input required type="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} /><input required minLength={8} type="password" placeholder="Password (8+ characters)" value={password} onChange={(event) => setPassword(event.target.value)} />{error && <small className="form-error">{error}</small>}<button className="primary-button" type="submit">{mode === 'login' ? 'Sign in' : 'Create account'}</button><button type="button" className="link-button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Need an account?' : 'Already have an account?'}</button></form></section>;
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setError('');
+    try {
+      if (mode === 'register') await api.register(name, email, password);
+      const session = await api.login(email, password);
+      if (mode === 'admin' && session.user.role !== 'Admin') throw new Error('This account does not have administrator access.');
+      onAuthenticated(session);
+    } catch (reason) { setError((reason as Error).message); }
+  }
+  return <section id="account" className="account section"><div><p className="eyebrow">{mode === 'admin' ? 'Administration' : 'Your account'}</p><h2>{mode === 'register' ? 'Join the collection.' : mode === 'admin' ? 'Administrator sign in.' : 'Welcome back.'}</h2><p>{mode === 'admin' ? 'Sign in with the configured administrator account.' : 'Sign in to checkout and view your order history.'}</p></div><form onSubmit={submit} className="auth-form">{mode === 'register' && <input required placeholder="Name" value={name} onChange={(event) => setName(event.target.value)} />}<input required type="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} /><input required minLength={8} type="password" placeholder="Password (8+ characters)" value={password} onChange={(event) => setPassword(event.target.value)} />{error && <small className="form-error">{error}</small>}<button className="primary-button" type="submit">{mode === 'register' ? 'Create customer account' : 'Sign in'}</button>{mode !== 'admin' && <button type="button" className="link-button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Need a customer account?' : 'Already have an account?'}</button>}{mode !== 'admin' && <button type="button" className="link-button" onClick={() => setMode('admin')}>Administrator sign in</button>}{mode === 'admin' && <button type="button" className="link-button" onClick={() => setMode('login')}>Back to customer sign in</button>}</form></section>;
 }
 
 function OrdersPanel({ orders }: { orders: Order[] }) { return <section id="orders" className="section"><div className="section-heading"><div><p className="eyebrow">Your account</p><h2>Recent orders</h2></div></div>{orders.length === 0 ? <p className="muted">Your completed orders will appear here.</p> : <div className="orders-list">{orders.map((order) => <div className="order-row" key={order.id}><span>Order #{order.id}</span><span>{order.quantity} item{order.quantity === 1 ? '' : 's'}</span><strong>${order.totalPrice.toFixed(2)}</strong><b>{order.status}</b></div>)}</div>}</section>; }

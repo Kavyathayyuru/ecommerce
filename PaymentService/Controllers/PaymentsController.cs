@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Data;
 using PaymentService.Models;
@@ -17,12 +18,14 @@ namespace PaymentService.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Payment>>> GetPayments()
         {
             return await _context.Payments.AsNoTracking().ToListAsync();
         }
 
         [HttpGet("{id:int}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Payment>> GetPayment(int id)
         {
             var payment = await _context.Payments.FindAsync(id);
@@ -30,6 +33,7 @@ namespace PaymentService.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Customer")]
         public async Task<ActionResult<Payment>> CreatePayment(CreatePaymentRequest request)
         {
             if (request.OrderId <= 0 || request.Amount <= 0 || string.IsNullOrWhiteSpace(request.PaymentMethod))
@@ -53,6 +57,7 @@ namespace PaymentService.Controllers
         }
 
         [HttpPost("{id:int}/confirm")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ConfirmPayment(int id)
         {
             var payment = await _context.Payments.FindAsync(id);
@@ -69,9 +74,11 @@ namespace PaymentService.Controllers
         }
 
         [HttpPost("{id:int}/fail")]
+        [Authorize(Roles = "Admin")]
         public Task<IActionResult> FailPayment(int id) => ChangeStatus(id, "Pending", "Failed");
 
         [HttpPost("{id:int}/refund")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RefundPayment(int id)
         {
             var payment = await _context.Payments.FindAsync(id);

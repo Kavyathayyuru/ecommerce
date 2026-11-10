@@ -1,5 +1,16 @@
 # Podman and Kubernetes
 
+## Local administrator login
+
+User registration creates customer accounts only. The local development administrator is provisioned from User Secrets (not source-controlled configuration):
+
+```powershell
+dotnet user-secrets set "BootstrapAdmin:Email" "admin@localhost" --project UserService
+dotnet user-secrets set "BootstrapAdmin:Password" "REPLACE_WITH_A_STRONG_PASSWORD" --project UserService
+```
+
+Restart UserService after changing these values. The configured email is assigned the Admin role and the configured password is set at startup. Local services share a development-only JWT signing key; never use it outside local development.
+
 ## Build images
 
 Run these commands from the repository root. The build context must be the root because each Containerfile copies its service project directory.
@@ -15,22 +26,31 @@ podman build -f WebUI/Containerfile --build-arg VITE_API_BASE_URL=http://localho
 
 ## Deploy to Kubernetes
 
-The services use separate SQL Server databases. LocalDB is Windows-only and is not reachable from a Pod. Provide a SQL Server host that is reachable inside the cluster, provision the four databases, and create this Secret before applying the workloads. Replace the server, username, and password with your environment's values:
+The services use separate SQL Server databases. LocalDB is Windows-only and is not reachable from a Pod. Provide a SQL Server host reachable inside the cluster and provision the four databases. Create the namespace and secrets first:
 
 ```powershell
-kubectl apply -f k8s/microservices.yaml
+kubectl create namespace ecommerce
 kubectl create secret generic ecommerce-db-connection-strings -n ecommerce `
   --from-literal=ProductService='Server=sqlserver,1433;Database=ProductDb;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;' `
   --from-literal=OrderService='Server=sqlserver,1433;Database=OrderDb;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;' `
   --from-literal=UserService='Server=sqlserver,1433;Database=UserDb;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;' `
   --from-literal=PaymentService='Server=sqlserver,1433;Database=PaymentDb;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;'
+kubectl create secret generic ecommerce-auth -n ecommerce `
+  --from-literal=SigningKey='GENERATE_A_RANDOM_SECRET_AT_LEAST_32_CHARACTERS_LONG' `
+  --from-literal=BootstrapAdminEmail='admin@example.com' `
+  --from-literal=BootstrapAdminPassword='USE_A_STRONG_SECRET_PASSWORD'
+```
+
+Apply each service's EF Core migrations to the target SQL Server before applying the workloads, including the UserService `AddUserRole` migration. Configure the target SQL Server connection string in your local environment before invoking `dotnet ef database update`. The rows previously stored in Windows LocalDB are not copied into the cluster database; seed ProductDb there separately if you want catalog items available.
+
+Then apply the workloads and check them:
+
+```powershell
 kubectl apply -f k8s/microservices.yaml
 kubectl get pods,services -n ecommerce
 ```
 
-Apply each service's EF Core migrations to the target SQL Server before testing its API. The rows previously stored in Windows LocalDB are not copied into the cluster database; seed ProductDb there separately if you want the catalog items available.
-
-The first apply creates the namespace. The second apply starts the Deployments after the Secret exists. For production, keep database credentials in a managed secret store and change `ASPNETCORE_ENVIRONMENT` to `Production` to disable Swagger.
+For production, keep database credentials and the JWT signing key in a managed secret store and change `ASPNETCORE_ENVIRONMENT` to `Production` to disable Swagger.
 
 The manifest uses `localhost/...` image names. Make those images available to the Kubernetes node (for example, load them into a local kind/minikube cluster) or retag and push them to a registry, then update each Deployment's `image` field.
 
