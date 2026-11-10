@@ -74,6 +74,9 @@ jobs:
           - service: PaymentService
             file: PaymentService/Containerfile
             image: payment-service
+          - service: Gateway
+            file: Gateway/Containerfile
+            image: gateway
 
     steps:
       - name: Checkout repository
@@ -86,18 +89,43 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normalize image owner
+        id: image-owner
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.file }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.sha }}
+          tags: ghcr.io/${{ steps.image-owner.outputs.owner }}/${{ matrix.image }}:${{ github.sha }}
+
+  deployment-gate:
+    name: Check Kubernetes deployment configuration
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+
+    steps:
+      - name: Check KUBE_CONFIG secret
+        id: check
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          if [ -n "$KUBE_CONFIG" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "KUBE_CONFIG is not configured; Kubernetes deployment will be skipped."
+          fi
 
   deploy-kubernetes:
     name: Deploy to Kubernetes
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.KUBE_CONFIG != ''
-    needs: docker-publish
+    if: needs.deployment-gate.outputs.enabled == 'true'
+    needs: [docker-publish, deployment-gate]
     runs-on: ubuntu-latest
 
     steps:
@@ -108,9 +136,11 @@ jobs:
         uses: azure/setup-kubectl@v4
 
       - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          printf '%s' "$KUBE_CONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
 
       - name: Update manifest image tags
@@ -118,10 +148,13 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           SHA: ${{ github.sha }}
         run: |
+          export OWNER="${OWNER,,}"
           python - <<'PY'
+          import os
           from pathlib import Path
-          owner = "${OWNER}".lower()
-          sha = "${SHA}"
+
+          owner = os.environ["OWNER"]
+          sha = os.environ["SHA"]
           path = Path('k8s/microservices.yaml')
           text = path.read_text()
           replacements = {
@@ -129,8 +162,11 @@ jobs:
               'localhost/order-service:1.0': f'ghcr.io/{owner}/order-service:{sha}',
               'localhost/user-service:1.0': f'ghcr.io/{owner}/user-service:{sha}',
               'localhost/payment-service:1.0': f'ghcr.io/{owner}/payment-service:{sha}',
+              'localhost/gateway:1.0': f'ghcr.io/{owner}/gateway:{sha}',
           }
           for old, new in replacements.items():
+              if old not in text:
+                  raise ValueError(f'Expected image reference was not found: {old}')
               text = text.replace(old, new)
           path.write_text(text)
           PY
@@ -144,6 +180,7 @@ jobs:
           kubectl rollout status deployment/order-service -n ecommerce --timeout=180s
           kubectl rollout status deployment/user-service -n ecommerce --timeout=180s
           kubectl rollout status deployment/payment-service -n ecommerce --timeout=180s
+          kubectl rollout status deployment/gateway -n ecommerce --timeout=180s
 
       - name: Show deployment status
         run: kubectl get pods,services -n ecommerce
