@@ -87,6 +87,62 @@ namespace OrderService.Controllers
             );
         }
 
+        [HttpPost("checkout")]
+        public async Task<IActionResult> Checkout(CheckoutRequest request)
+        {
+            if (request.UserId <= 0 || request.ProductId <= 0 || request.Quantity <= 0 ||
+                string.IsNullOrWhiteSpace(request.PaymentMethod))
+            {
+                return BadRequest("A valid user, product, positive quantity, and payment method are required.");
+            }
+
+            var userResult = await GetUser(request.UserId);
+            if (userResult.Error is not null)
+            {
+                return userResult.Error;
+            }
+            if (userResult.User is null)
+            {
+                return NotFound("User not found.");
+            }
+
+            var productResult = await GetProduct(request.ProductId);
+            if (productResult.Error is not null)
+            {
+                return productResult.Error;
+            }
+            if (productResult.Product is null)
+            {
+                return NotFound("Product not found.");
+            }
+            if (request.Quantity > productResult.Product.Stock)
+            {
+                return Conflict("Requested quantity exceeds available stock.");
+            }
+
+            var order = new Order
+            {
+                UserId = request.UserId,
+                ProductId = request.ProductId,
+                Quantity = request.Quantity,
+                TotalPrice = productResult.Product.Price * request.Quantity,
+                Status = "Pending"
+            };
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+
+            var paymentResult = await CreatePayment(order.Id, order.TotalPrice, request.PaymentMethod);
+            if (paymentResult.Error is not null)
+            {
+                return paymentResult.Error;
+            }
+
+            order.Status = "Completed";
+            await _context.SaveChangesAsync();
+
+            return Ok(new CheckoutResponse(order, paymentResult.Payment!));
+        }
+
         // PUT: api/Orders/1
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateOrder(int id, UpdateOrderRequest request)
@@ -205,10 +261,73 @@ namespace OrderService.Controllers
                 return (null, StatusCode((int)HttpStatusCode.ServiceUnavailable, "Product service is unavailable."));
             }
         }
+
+        private async Task<(CatalogUser? User, IActionResult? Error)> GetUser(int userId)
+        {
+            var userServiceUrl = _configuration["Services:UserServiceUrl"];
+            if (string.IsNullOrWhiteSpace(userServiceUrl))
+            {
+                return (null, StatusCode((int)HttpStatusCode.ServiceUnavailable, "User service URL is not configured."));
+            }
+
+            try
+            {
+                var response = await _httpClientFactory.CreateClient().GetAsync(
+                    $"{userServiceUrl.TrimEnd('/')}/api/Users/{userId}");
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    return (null, null);
+                }
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (null, StatusCode((int)HttpStatusCode.BadGateway, "User service could not validate the user."));
+                }
+
+                return (await response.Content.ReadFromJsonAsync<CatalogUser>(), null);
+            }
+            catch (HttpRequestException)
+            {
+                return (null, StatusCode((int)HttpStatusCode.ServiceUnavailable, "User service is unavailable."));
+            }
+        }
+
+        private async Task<(CreatedPayment? Payment, IActionResult? Error)> CreatePayment(
+            int orderId,
+            decimal amount,
+            string paymentMethod)
+        {
+            var paymentServiceUrl = _configuration["Services:PaymentServiceUrl"];
+            if (string.IsNullOrWhiteSpace(paymentServiceUrl))
+            {
+                return (null, StatusCode((int)HttpStatusCode.ServiceUnavailable, "Payment service URL is not configured."));
+            }
+
+            try
+            {
+                var response = await _httpClientFactory.CreateClient().PostAsJsonAsync(
+                    $"{paymentServiceUrl.TrimEnd('/')}/api/Payments",
+                    new CreatePaymentRequest(orderId, amount, paymentMethod));
+                if (!response.IsSuccessStatusCode)
+                {
+                    return (null, StatusCode((int)HttpStatusCode.BadGateway, "Payment service could not process the payment."));
+                }
+
+                return (await response.Content.ReadFromJsonAsync<CreatedPayment>(), null);
+            }
+            catch (HttpRequestException)
+            {
+                return (null, StatusCode((int)HttpStatusCode.ServiceUnavailable, "Payment service is unavailable."));
+            }
+        }
     }
 
     public record CreateOrderRequest(int UserId, int ProductId, int Quantity);
     public record UpdateOrderRequest(int ProductId, int Quantity);
     public record UpdateOrderStatusRequest(string Status);
+    public record CheckoutRequest(int UserId, int ProductId, int Quantity, string PaymentMethod);
     public record CatalogProduct(int Id, string Name, string Description, decimal Price, int Stock);
+    public record CatalogUser(int Id, string Name, string Email);
+    public record CreatePaymentRequest(int OrderId, decimal Amount, string PaymentMethod);
+    public record CreatedPayment(int Id, int OrderId, decimal Amount, string PaymentMethod, string Status, DateTime CreatedAtUtc, DateTime? UpdatedAtUtc, DateTime? RefundedAtUtc);
+    public record CheckoutResponse(Order Order, CreatedPayment Payment);
 }

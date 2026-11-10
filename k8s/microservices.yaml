@@ -10,6 +10,9 @@ metadata:
   namespace: ecommerce
 data:
   Services__ProductServiceUrl: http://product-service
+  Services__UserServiceUrl: http://user-service
+  Services__PaymentServiceUrl: http://payment-service
+  Frontend__AllowedOrigin: http://localhost:5173
   ReverseProxy__Clusters__product-cluster__Destinations__product__Address: http://product-service/
   ReverseProxy__Clusters__order-cluster__Destinations__order__Address: http://order-service/
   ReverseProxy__Clusters__user-cluster__Destinations__user__Address: http://user-service/
@@ -73,6 +76,61 @@ spec:
   type: ClusterIP
   selector:
     app: product-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-ui
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-ui
+  template:
+    metadata:
+      labels:
+        app: web-ui
+    spec:
+      containers:
+        - name: web-ui
+          image: localhost/ecommerce-web-ui:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-ui
+  namespace: ecommerce
+spec:
+  type: ClusterIP
+  selector:
+    app: web-ui
   ports:
     - name: http
       port: 80

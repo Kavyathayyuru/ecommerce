@@ -7,10 +7,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("WebUi", policy =>
+    {
+        var allowedOrigin = builder.Configuration["Frontend:AllowedOrigin"] ?? "http://localhost:5173";
+        policy.WithOrigins(allowedOrigin)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseCors("WebUi");
 
 if (app.Environment.IsDevelopment())
 {

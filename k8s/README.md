@@ -10,6 +10,7 @@ podman build -f OrderService/Containerfile -t localhost/order-service:1.0 .
 podman build -f UserService/Containerfile -t localhost/user-service:1.0 .
 podman build -f PaymentService/Containerfile -t localhost/payment-service:1.0 .
 podman build -f Gateway/Containerfile -t localhost/gateway:1.0 .
+podman build -f WebUI/Containerfile --build-arg VITE_API_BASE_URL=http://localhost:5005 -t localhost/ecommerce-web-ui:1.0 .
 ```
 
 ## Deploy to Kubernetes
@@ -33,7 +34,7 @@ The first apply creates the namespace. The second apply starts the Deployments a
 
 The manifest uses `localhost/...` image names. Make those images available to the Kubernetes node (for example, load them into a local kind/minikube cluster) or retag and push them to a registry, then update each Deployment's `image` field.
 
-The GitHub Actions workflow builds and publishes images for Product, Order, User, Payment, and Gateway to GHCR on pushes to `main` or `master`. It deploys only when the repository has a `KUBE_CONFIG` Actions secret. Ensure the cluster can pull the published images (for example, make the GHCR packages public or configure a Kubernetes image pull secret with read access to them) before enabling deployment. The database connection-string Secret described above must also exist in the cluster.
+The GitHub Actions workflow builds and publishes images for Product, Order, User, Payment, Gateway, and WebUI to GHCR on pushes to `main` or `master`. It deploys only when the repository has a `KUBE_CONFIG` Actions secret. Ensure the cluster can pull the published images (for example, make the GHCR packages public or configure a Kubernetes image pull secret with read access to them) before enabling deployment. The database connection-string Secret described above must also exist in the cluster.
 
 ## Open Swagger
 
@@ -53,3 +54,9 @@ kubectl port-forward -n ecommerce svc/gateway 5005:80
 ```
 
 The Gateway's Kubernetes configuration routes its requests to the in-cluster service names. The local `appsettings.json` destinations remain configured for local development.
+
+The React UI is available through the `web-ui` Service. Port-forward it separately and open `http://localhost:5173`:
+
+```powershell
+kubectl port-forward -n ecommerce svc/web-ui 5173:80
+```
