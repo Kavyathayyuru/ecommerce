@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, Checkout, LoginResponse, Order, Product, User } from './api';
 import { AdminDashboard } from './AdminDashboard';
+import { useOrderUpdates } from './useOrderUpdates';
 
 type CartItem = { product: Product; quantity: number };
 
@@ -28,6 +29,11 @@ export function App() {
   const [notice, setNotice] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
   const [showCart, setShowCart] = useState(false);
+
+  useOrderUpdates((orderId, status) => {
+    setOrders((current) => current.map((order) => order.id === orderId ? { ...order, status } : order));
+    setNotice(`Order #${orderId} status changed to ${status}.`);
+  }, user?.role === 'Customer');
 
   useEffect(() => {
     api.getProducts().then(setProducts).catch((reason: Error) => setError(reason.message));

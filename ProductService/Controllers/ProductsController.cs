@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using ProductService.Models;
-using ProductService.Data;
+using ProductService.Services;
 
 namespace ProductService.Controllers
 {
@@ -9,29 +9,27 @@ namespace ProductService.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        private readonly ProductDbContext _context;
+        private readonly ProductService.Services.ProductService _products;
 
-        public ProductsController(ProductDbContext context)
+        public ProductsController(ProductService.Services.ProductService products)
         {
-            _context = context;
+            _products = products;
         }
 
 
         // GET: api/Products
         [HttpGet]
-        public IActionResult GetProducts()
+        public async Task<IActionResult> GetProducts(CancellationToken cancellationToken)
         {
-            var products = _context.Products.ToList();
-
-            return Ok(products);
+            return Ok(await _products.GetAllAsync(cancellationToken));
         }
 
 
         // GET: api/Products/1
         [HttpGet("{id}")]
-        public IActionResult GetProduct(int id)
+        public async Task<IActionResult> GetProduct(int id, CancellationToken cancellationToken)
         {
-            var product = _context.Products.FirstOrDefault(p => p.Id == id);
+            var product = await _products.GetByIdAsync(id, cancellationToken);
 
             if (product == null)
             {
@@ -45,21 +43,18 @@ namespace ProductService.Controllers
         // POST: api/Products
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public IActionResult CreateProduct(Product product)
+        public async Task<IActionResult> CreateProduct(Product product, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(product.Name) || product.Price < 0 || product.Stock < 0)
+            var (created, error) = await _products.CreateAsync(product, cancellationToken);
+            if (error is not null)
             {
-                return BadRequest("Name is required and price and stock cannot be negative.");
+                return BadRequest(error);
             }
-
-            product.Id = 0;
-            _context.Products.Add(product);
-            _context.SaveChanges();
 
             return CreatedAtAction(
                 nameof(GetProduct),
-                new { id = product.Id },
-                product
+                new { id = created!.Id },
+                created
             );
         }
 
@@ -67,47 +62,23 @@ namespace ProductService.Controllers
         // PUT: api/Products/1
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult UpdateProduct(int id, Product updatedProduct)
+        public async Task<IActionResult> UpdateProduct(int id, Product updatedProduct, CancellationToken cancellationToken)
         {
-            var product = _context.Products.FirstOrDefault(p => p.Id == id);
-
-            if (product == null)
+            var (product, error) = await _products.UpdateAsync(id, updatedProduct, cancellationToken);
+            if (error is not null)
             {
-                return NotFound();
+                return BadRequest(error);
             }
-
-            if (string.IsNullOrWhiteSpace(updatedProduct.Name) || updatedProduct.Price < 0 || updatedProduct.Stock < 0)
-            {
-                return BadRequest("Name is required and price and stock cannot be negative.");
-            }
-
-            product.Name = updatedProduct.Name;
-            product.Description = updatedProduct.Description;
-            product.Price = updatedProduct.Price;
-            product.Stock = updatedProduct.Stock;
-
-            _context.SaveChanges();
-
-            return Ok(product);
+            return product is null ? NotFound() : Ok(product);
         }
 
 
         // DELETE: api/Products/1
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(int id, CancellationToken cancellationToken)
         {
-            var product = _context.Products.FirstOrDefault(p => p.Id == id);
-
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            _context.Products.Remove(product);
-            _context.SaveChanges();
-
-            return NoContent();
+            return await _products.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
         }
     }
 }

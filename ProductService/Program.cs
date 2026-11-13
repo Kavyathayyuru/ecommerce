@@ -4,6 +4,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 using ProductService.Data;
+using ProductService.Repositories;
+using ProductService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +34,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddDbContext<ProductDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<ProductService.Services.ProductService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -1,10 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY Gateway/Gateway.csproj Gateway/
-RUN dotnet restore Gateway/Gateway.csproj
-COPY Gateway/ Gateway/
-WORKDIR /src/Gateway
-RUN dotnet publish Gateway.csproj -c Release -o /out --no-restore /p:UseAppHost=false
+COPY . .
+RUN dotnet publish Gateway/Gateway.csproj -c Release -o /out /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

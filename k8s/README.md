@@ -1,5 +1,8 @@
 # Podman and Kubernetes
 
+For the service responsibilities and communication boundaries, see the
+[architecture overview](../ARCHITECTURE.md).
+
 ## Local administrator login
 
 User registration creates customer accounts only. The local development administrator is provisioned from User Secrets (not source-controlled configuration):
@@ -13,7 +16,7 @@ Restart UserService after changing these values. The configured email is assigne
 
 ## Build images
 
-Run these commands from the repository root. The build context must be the root because each Containerfile copies its service project directory.
+Run these commands from the repository root. The build context must be the root because each Containerfile copies its service project directory. The Containerfiles use standard Dockerfile syntax and work with Docker as well as Podman when passed with `-f`.
 
 ```powershell
 podman build -f ProductService/Containerfile -t localhost/product-service:1.0 .
@@ -41,7 +44,9 @@ kubectl create secret generic ecommerce-auth -n ecommerce `
   --from-literal=BootstrapAdminPassword='USE_A_STRONG_SECRET_PASSWORD'
 ```
 
-Apply each service's EF Core migrations to the target SQL Server before applying the workloads, including the UserService `AddUserRole` migration. Configure the target SQL Server connection string in your local environment before invoking `dotnet ef database update`. The rows previously stored in Windows LocalDB are not copied into the cluster database; seed ProductDb there separately if you want catalog items available.
+Apply each service's EF Core migrations to the target SQL Server before applying the workloads, including the UserService `AddUserRole` and OrderService `AddOrderStatusOutbox` migrations. Configure the target SQL Server connection string in your local environment before invoking `dotnet ef database update --project OrderService` and the corresponding commands for the other services. The rows previously stored in Windows LocalDB are not copied into the cluster database; seed ProductDb there separately if you want catalog items available.
+
+OrderService stores status-change events in its SQL outbox and a hosted worker publishes them through the authenticated `/hubs/orders` SignalR endpoint. The Gateway proxies this endpoint; the UI receives live updates while signed in. Run `dotnet test ECommerceMicroservices.slnx --configuration Release` from the repository root to execute the automated backend unit tests before packaging.
 
 Then apply the workloads and check them:
 

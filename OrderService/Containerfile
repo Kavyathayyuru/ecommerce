@@ -1,10 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY OrderService/OrderService.csproj OrderService/
-RUN dotnet restore OrderService/OrderService.csproj
-COPY OrderService/ OrderService/
-WORKDIR /src/OrderService
-RUN dotnet publish OrderService.csproj -c Release -o /out --no-restore /p:UseAppHost=false
+COPY . .
+RUN dotnet publish OrderService/OrderService.csproj -c Release -o /out /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { api, Order, Payment, Product, ServiceHealth, User } from './api';
+import { useOrderUpdates } from './useOrderUpdates';
 
 const emptyProduct = { name: '', description: '', price: '', stock: '' };
 
@@ -12,6 +13,11 @@ export function AdminDashboard({ user, onSignOut }: { user: User; onSignOut: () 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useOrderUpdates((orderId, status) => {
+    setOrders((current) => current.map((order) => order.id === orderId ? { ...order, status } : order));
+    setNotice(`Order #${orderId} status changed to ${status}.`);
+  }, true);
 
   const refresh = useCallback(async () => {
     setError('');

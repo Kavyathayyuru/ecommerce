@@ -11,9 +11,18 @@ namespace OrderService.Data
         }
 
         public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderOutboxMessage> OrderOutboxMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<OrderOutboxMessage>()
+                .HasIndex(message => message.ProcessedAtUtc);
+            modelBuilder.Entity<OrderOutboxMessage>()
+                .HasOne(message => message.Order)
+                .WithMany()
+                .HasForeignKey(message => message.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<Order>()
                 .Property(order => order.TotalPrice)
                 .HasPrecision(18, 2);

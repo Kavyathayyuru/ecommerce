@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.IdentityModel.Tokens.Jwt;
 using OrderService.Data;
 using OrderService.Models;
+using OrderService.Services;
 
 namespace OrderService.Controllers
 {
@@ -72,7 +73,7 @@ namespace OrderService.Controllers
         public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
         {
             if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var authenticatedUserId) ||
-                request.UserId != authenticatedUserId || request.ProductId <= 0 || request.Quantity <= 0)
+                !OrderRules.IsValidRequest(authenticatedUserId, request.UserId, request.ProductId, request.Quantity))
             {
                 return BadRequest("A valid user, product, and positive quantity are required.");
             }
@@ -100,6 +101,7 @@ namespace OrderService.Controllers
                 Status = "Pending"
             };
             _context.Orders.Add(order);
+            OrderStatusOutbox.Record(_context, order);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
@@ -114,7 +116,7 @@ namespace OrderService.Controllers
         public async Task<IActionResult> Checkout(CheckoutRequest request)
         {
             if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var authenticatedUserId) ||
-                request.UserId != authenticatedUserId || request.ProductId <= 0 || request.Quantity <= 0 ||
+                !OrderRules.IsValidRequest(authenticatedUserId, request.UserId, request.ProductId, request.Quantity) ||
                 string.IsNullOrWhiteSpace(request.PaymentMethod))
             {
                 return BadRequest("A valid user, product, positive quantity, and payment method are required.");
@@ -153,6 +155,7 @@ namespace OrderService.Controllers
                 Status = "Pending"
             };
             _context.Orders.Add(order);
+            OrderStatusOutbox.Record(_context, order);
             await _context.SaveChangesAsync();
 
             var paymentResult = await CreatePayment(order.Id, order.TotalPrice, request.PaymentMethod);
@@ -162,6 +165,7 @@ namespace OrderService.Controllers
             }
 
             order.Status = "Completed";
+            OrderStatusOutbox.Record(_context, order);
             await _context.SaveChangesAsync();
 
             return Ok(new CheckoutResponse(order, paymentResult.Payment!));
@@ -221,12 +225,12 @@ namespace OrderService.Controllers
                 return NotFound();
             }
 
-            var allowedStatuses = new[] { "Pending", "Processing", "Completed", "Cancelled" };
-            if (!allowedStatuses.Contains(request.Status, StringComparer.OrdinalIgnoreCase))
+            if (!OrderRules.IsAllowedStatus(request.Status))
             {
                 return BadRequest("Status must be Pending, Processing, Completed, or Cancelled.");
             }
-            order.Status = allowedStatuses.First(status => status.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
+            order.Status = OrderRules.NormalizeStatus(request.Status);
+            OrderStatusOutbox.Record(_context, order);
             await _context.SaveChangesAsync();
             return Ok(order);
         }
@@ -242,12 +246,13 @@ namespace OrderService.Controllers
                 return NotFound();
             }
 
-            if (order.Status == "Completed")
+            if (!OrderRules.CanCancel(order))
             {
                 return Conflict("Completed orders cannot be cancelled.");
             }
 
             order.Status = "Cancelled";
+            OrderStatusOutbox.Record(_context, order);
             await _context.SaveChangesAsync();
 
             return Ok(order);

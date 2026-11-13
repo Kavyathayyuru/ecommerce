@@ -20,6 +20,8 @@ data:
   Monitoring__PaymentServiceUrl: http://payment-service
   ReverseProxy__Clusters__product-cluster__Destinations__product__Address: http://product-service/
   ReverseProxy__Clusters__order-cluster__Destinations__order__Address: http://order-service/
+  ReverseProxy__Routes__order-hub-route__ClusterId: order-cluster
+  ReverseProxy__Routes__order-hub-route__Match__Path: /hubs/orders/{**catch-all}
   ReverseProxy__Clusters__user-cluster__Destinations__user__Address: http://user-service/
   ReverseProxy__Clusters__payment-cluster__Destinations__payment__Address: http://payment-service/
 ---

@@ -1,10 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY PaymentService/PaymentService.csproj PaymentService/
-RUN dotnet restore PaymentService/PaymentService.csproj
-COPY PaymentService/ PaymentService/
-WORKDIR /src/PaymentService
-RUN dotnet publish PaymentService.csproj -c Release -o /out --no-restore /p:UseAppHost=false
+COPY . .
+RUN dotnet publish PaymentService/PaymentService.csproj -c Release -o /out /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
